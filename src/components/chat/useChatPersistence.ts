@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { Message, ToolCallInfo } from "./types";
 import type { ContainerScope } from "../../types/chat";
+import { decodeChatMessages } from "./chatPersistence";
 import { withoutSkillCardDrafts } from "./skillCardRecord";
 
 interface UseChatPersistenceOptions {
@@ -89,18 +90,7 @@ export function useChatPersistence(options: UseChatPersistenceOptions = {}): Cha
     }
     conversationIdRef.current = id;
     setConversationId(id);
-    const loaded: Message[] = conv.messages.map((m) => {
-      const parsed = m.metadata ? tryParseMetadata(m.metadata) : undefined;
-      const toolCalls = parsed?.toolCalls as ToolCallInfo[] | undefined;
-      return {
-        id: crypto.randomUUID(),
-        role: m.role as Message["role"],
-        content: m.content,
-        isStreaming: false,
-        ...(toolCalls ? { toolCalls } : {}),
-      };
-    });
-    setMessages(loaded);
+    setMessages(decodeChatMessages(conv));
     return true;
   }, []);
 
@@ -146,13 +136,4 @@ export function useChatPersistence(options: UseChatPersistenceOptions = {}): Cha
     saveAssistantMessage,
     handleNewChat,
   };
-}
-
-function tryParseMetadata(raw: string | undefined): Record<string, unknown> | undefined {
-  if (!raw) return undefined;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return undefined;
-  }
 }
