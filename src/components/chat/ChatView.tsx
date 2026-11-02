@@ -32,13 +32,6 @@ export default function ChatView() {
       setActiveConversationId(id);
       setRefreshKey((k) => k + 1);
     },
-    onAccountChange: () => {
-      streaming.cancelStream();
-      setActiveConversationId(null);
-      setIsNewChat(true);
-      setShowSearch(false);
-      setRefreshKey((k) => k + 1);
-    },
   });
 
   const streaming = useChatStreaming({
