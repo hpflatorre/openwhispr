@@ -3082,6 +3082,7 @@ export class SyncService {
         cursorId = last.id;
       }
 
+      await assertAuthGenerationCurrent(authGeneration);
       if (maxUpdatedAt) localStorage.setItem("lastSyncedAt.snippets", maxUpdatedAt);
       if (maxId) localStorage.setItem("lastSyncedAt.snippets.id", maxId);
       if (changed) await window.electronAPI.broadcastSnippetsUpdated?.();
