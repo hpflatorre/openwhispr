@@ -233,7 +233,7 @@ function chatPushSender(): ChatPushSender | null {
 // A pull writes rows under the sign-in that fetched them. Once main refuses a
 // write as stale, the rest of the page belongs to the departed account, so the
 // pull stops before its cursor moves.
-function stopIfPullStale(result: unknown): void {
+function stopIfPullStale<T>(result: T): asserts result is Exclude<T, StaleSyncWrite> {
   if ((result as StaleSyncWrite | null | undefined)?.stale) {
     throw Object.assign(new Error("Authentication context changed during pull"), {
       code: "AUTH_CONTEXT_CHANGED",
@@ -2607,7 +2607,7 @@ export class SyncService {
 
           if (!cloudT.text) continue;
 
-          if (!local) {
+          if (!local || (!local.account_id && !local.deleted_at)) {
             stopIfPullStale(
               await window.electronAPI.upsertTranscriptionFromCloud?.(
                 cloudT as unknown as Record<string, unknown>,
@@ -3022,8 +3022,10 @@ export class SyncService {
         for (const cloudEntry of entries) {
           const cloudTs = normalizeTimestamp(cloudEntry.updated_at);
           const local = await window.electronAPI.getSnippetForCloudMerge?.(
-            cloudEntry as unknown as Record<string, unknown>
+            cloudEntry as unknown as Record<string, unknown>,
+            authGeneration
           );
+          stopIfPullStale(local);
 
           if (cloudTs > maxUpdatedAt) {
             maxUpdatedAt = cloudTs;
@@ -3034,7 +3036,9 @@ export class SyncService {
 
           if (cloudEntry.deleted_at) {
             if (local && !(local.sync_status === "pending" && !local.cloud_id)) {
-              await window.electronAPI.hardDeleteSnippet?.(local.id);
+              stopIfPullStale(
+                await window.electronAPI.hardDeleteSnippet?.(local.id, authGeneration)
+              );
               changed = true;
             }
             continue;

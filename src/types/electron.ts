@@ -276,6 +276,7 @@ export interface TranscriptionItem {
   error_code: TranscriptionErrorCode;
   route_kind?: string | null;
   client_transcription_id: string;
+  account_id?: string | null;
   cloud_id: string | null;
   sync_status: "synced" | "pending" | "error";
   deleted_at: string | null;
@@ -3776,8 +3777,9 @@ declare global {
       getPendingSnippets?: () => Promise<SnippetEntryItem[]>;
       getPendingSnippetDeletes?: () => Promise<SnippetEntryItem[]>;
       getSnippetForCloudMerge?: (
-        cloudEntry: Record<string, unknown>
-      ) => Promise<SnippetEntryItem | null>;
+        cloudEntry: Record<string, unknown>,
+        expectedAuthGeneration?: number
+      ) => Promise<SnippetEntryItem | StaleSyncWrite | null>;
       upsertSnippetFromCloud?: (
         cloudEntry: Record<string, unknown>,
         expectedAuthGeneration?: number
@@ -3790,7 +3792,10 @@ declare global {
         expectedReplacement?: string,
         expectedAuthGeneration?: number
       ) => Promise<{ success: boolean; changes: number; stale?: boolean }>;
-      hardDeleteSnippet?: (id: number) => Promise<{ success: boolean; id: number }>;
+      hardDeleteSnippet?: (
+        id: number,
+        expectedAuthGeneration?: number
+      ) => Promise<{ success: boolean; id: number } | StaleSyncWrite>;
       clearSnippetCloudId?: (id: number) => Promise<{ success: boolean }>;
       broadcastSnippetsUpdated?: () => Promise<{ success: boolean }>;
     };

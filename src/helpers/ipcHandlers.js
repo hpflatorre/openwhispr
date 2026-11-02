@@ -2295,9 +2295,13 @@ class IPCHandlers {
       return this.databaseManager.getPendingSnippetDeletes();
     });
 
-    ipcMain.handle("db-get-snippet-for-cloud-merge", async (_event, cloudEntry) => {
-      return this.databaseManager.getSnippetForCloudMerge(cloudEntry);
-    });
+    ipcMain.handle(
+      "db-get-snippet-for-cloud-merge",
+      async (_event, cloudEntry, expectedAuthGeneration) => {
+        if (isStaleSyncAck(expectedAuthGeneration)) return STALE_SYNC_ACK;
+        return this.databaseManager.getSnippetForCloudMerge(cloudEntry);
+      }
+    );
 
     ipcMain.handle(
       "db-upsert-snippet-from-cloud",
@@ -2329,7 +2333,8 @@ class IPCHandlers {
       }
     );
 
-    ipcMain.handle("db-hard-delete-snippet", async (_event, id) => {
+    ipcMain.handle("db-hard-delete-snippet", async (_event, id, expectedAuthGeneration) => {
+      if (isStaleSyncAck(expectedAuthGeneration)) return STALE_SYNC_ACK;
       return this.databaseManager.hardDeleteSnippet(id);
     });
 
