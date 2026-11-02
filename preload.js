@@ -1276,7 +1276,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ),
   markConversationSynced: (id, cloudId, accountId, authGeneration) =>
     ipcRenderer.invoke("db-mark-conversation-synced", id, cloudId, accountId, authGeneration),
-  hardDeleteConversation: (id) => ipcRenderer.invoke("db-hard-delete-conversation", id),
+  hardDeleteConversation: (id, expectedAuthGeneration) =>
+    ipcRenderer.invoke("db-hard-delete-conversation", id, expectedAuthGeneration),
 
   getPendingTranscriptions: () => ipcRenderer.invoke("db-get-pending-transcriptions"),
   getTranscriptionByClientId: (clientId) =>
@@ -1290,7 +1291,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   markTranscriptionSynced: (id, cloudId, expectedAuthGeneration) =>
     ipcRenderer.invoke("db-mark-transcription-synced", id, cloudId, expectedAuthGeneration),
   getPendingTranscriptionDeletes: () => ipcRenderer.invoke("db-get-pending-transcription-deletes"),
-  hardDeleteTranscription: (id) => ipcRenderer.invoke("db-hard-delete-transcription", id),
+  hardDeleteTranscription: (id, expectedAuthGeneration) =>
+    ipcRenderer.invoke("db-hard-delete-transcription", id, expectedAuthGeneration),
 
   getPendingDictionary: () => ipcRenderer.invoke("db-get-pending-dictionary"),
   getPendingDictionaryDeletes: () => ipcRenderer.invoke("db-get-pending-dictionary-deletes"),
@@ -1317,7 +1319,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
       serverSource,
       expectedAuthGeneration
     ),
-  hardDeleteDictionary: (id) => ipcRenderer.invoke("db-hard-delete-dictionary", id),
+  hardDeleteDictionary: (id, expectedAuthGeneration) =>
+    ipcRenderer.invoke("db-hard-delete-dictionary", id, expectedAuthGeneration),
   clearDictionaryCloudId: (id) => ipcRenderer.invoke("db-clear-dictionary-cloud-id", id),
   broadcastDictionaryUpdated: () => ipcRenderer.invoke("db-broadcast-dictionary-updated"),
 

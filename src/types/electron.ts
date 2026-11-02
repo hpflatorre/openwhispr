@@ -3738,7 +3738,10 @@ declare global {
         accountId: string,
         authGeneration: number
       ) => Promise<{ success: boolean } | undefined>;
-      hardDeleteConversation?: (id: number) => Promise<void>;
+      hardDeleteConversation?: (
+        id: number,
+        expectedAuthGeneration?: number
+      ) => Promise<{ success: boolean } | StaleSyncWrite>;
 
       getPendingTranscriptions?: () => Promise<TranscriptionItem[]>;
       getTranscriptionByClientId?: (clientId: string) => Promise<TranscriptionItem | null>;
@@ -3752,7 +3755,10 @@ declare global {
         expectedAuthGeneration?: number
       ) => Promise<{ success: boolean; orphaned?: boolean; stale?: boolean }>;
       getPendingTranscriptionDeletes?: () => Promise<TranscriptionItem[]>;
-      hardDeleteTranscription?: (id: number) => Promise<{ success: boolean; id: number }>;
+      hardDeleteTranscription?: (
+        id: number,
+        expectedAuthGeneration?: number
+      ) => Promise<{ success: boolean; id: number } | StaleSyncWrite>;
 
       getPendingDictionary?: () => Promise<DictionaryEntryItem[]>;
       getPendingDictionaryDeletes?: () => Promise<DictionaryEntryItem[]>;
@@ -3770,7 +3776,10 @@ declare global {
         serverSource?: DictionaryEntryItem["source"],
         expectedAuthGeneration?: number
       ) => Promise<{ success: boolean; changes: number; stale?: boolean }>;
-      hardDeleteDictionary?: (id: number) => Promise<{ success: boolean; id: number }>;
+      hardDeleteDictionary?: (
+        id: number,
+        expectedAuthGeneration?: number
+      ) => Promise<{ success: boolean; id: number } | StaleSyncWrite>;
       clearDictionaryCloudId?: (id: number) => Promise<{ success: boolean }>;
       broadcastDictionaryUpdated?: () => Promise<{ success: boolean }>;
 
