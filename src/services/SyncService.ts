@@ -2422,9 +2422,13 @@ export class SyncService {
           // A live cloud row cannot override a local pending delete. The
           // tombstone stays queued for push; only the cloud tombstone branch
           // above is authoritative enough to hard-delete it locally.
-          if (local?.deleted_at) continue;
+          if (local?.deleted_at && local.account_id) continue;
 
-          if (!local || isCloudEntryNewer(cloudConv.updated_at, local.updated_at)) {
+          if (
+            !local ||
+            !local.account_id ||
+            isCloudEntryNewer(cloudConv.updated_at, local.updated_at)
+          ) {
             stopIfPullStale(
               await window.electronAPI.upsertConversationFromCloud?.(
                 cloudConv as unknown as Record<string, unknown>,
@@ -2616,7 +2620,7 @@ export class SyncService {
 
           if (!cloudT.text) continue;
 
-          if (!local || (!local.account_id && !local.deleted_at)) {
+          if (!local || !local.account_id) {
             stopIfPullStale(
               await window.electronAPI.upsertTranscriptionFromCloud?.(
                 cloudT as unknown as Record<string, unknown>,
@@ -2828,7 +2832,7 @@ export class SyncService {
           // Last-writer-wins on normalized timestamps (see normalizeTimestamp).
           const cloudTs = normalizeTimestamp(cloudEntry.updated_at);
           const localTs = local ? normalizeTimestamp(local.updated_at) : "";
-          if (!local || cloudTs > localTs) {
+          if (!local || !local.account_id || cloudTs > localTs) {
             stopIfPullStale(
               await window.electronAPI.upsertDictionaryFromCloud?.(
                 cloudEntry as unknown as Record<string, unknown>,
@@ -3060,6 +3064,9 @@ export class SyncService {
           const localTs = local ? normalizeTimestamp(local.updated_at) : "";
           const shouldApply =
             !local ||
+            (!local.account_id &&
+              (local.client_snippet_id === cloudEntry.client_snippet_id ||
+                local.cloud_id === cloudEntry.id)) ||
             cloudTs > localTs ||
             (local.sync_status !== "pending" &&
               (!local.cloud_id || local.cloud_id !== cloudEntry.id));
