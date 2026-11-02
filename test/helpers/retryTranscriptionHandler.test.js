@@ -11,6 +11,8 @@ const originalLoad = Module._load;
 // registered handler closures can be invoked directly against a fake `this`.
 const handlers = new Map();
 const fetches = [];
+const broadcasts = [];
+let tokenState = { token: "test-token", generation: 0 };
 let fetchResponse = () => ({
   ok: true,
   status: 200,
@@ -113,10 +115,14 @@ Module._load = function loadWithMocks(request, parent, isMain) {
       };
     }
     if (request === "./tokenStore") {
-      return { ...originalLoad.call(this, request, parent, isMain), get: () => "test-token" };
+      return {
+        ...originalLoad.call(this, request, parent, isMain),
+        get: () => tokenState.token,
+        getState: () => ({ ...tokenState }),
+      };
     }
     if (request === "./windowBroadcast") {
-      return { broadcastToWindows: () => {} };
+      return { broadcastToWindows: (...args) => broadcasts.push(args) };
     }
     if (request === "./ffmpegUtils") {
       const real = originalLoad.call(this, request, parent, isMain);
@@ -171,6 +177,7 @@ function buildFakeThis() {
               : null,
     },
     databaseManager: {
+      activeAccountId: null,
       updateTranscriptionText: (id, text) => textUpdates.push({ id, text }),
       updateTranscriptionStatus: (id, status) => statusUpdates.push({ id, status }),
       updateTranscriptionAudio: () => {},
@@ -536,6 +543,74 @@ async function withCloudResponse(t, respond, id) {
   textUpdates.length = 0;
   return retryHandler({ sender: { window: {} } }, id, CLOUD_SETTINGS);
 }
+
+test("retry: switching accounts while routing never uploads the original account's recording", async (t) => {
+  const originalAudioRead = fakeThis.audioStorageManager.getAudioBuffer;
+  const originalTokenState = tokenState;
+  const originalAccountId = fakeThis.databaseManager.activeAccountId;
+  t.after(() => {
+    fakeThis.audioStorageManager.getAudioBuffer = originalAudioRead;
+    tokenState = originalTokenState;
+    fakeThis.databaseManager.activeAccountId = originalAccountId;
+  });
+  fakeThis.databaseManager.activeAccountId = "account-a";
+  fakeThis.audioStorageManager.getAudioBuffer = (id) => {
+    const audio = originalAudioRead(id);
+    queueMicrotask(() => {
+      tokenState = { token: "token-b", generation: tokenState.generation + 1 };
+      fakeThis.databaseManager.activeAccountId = "account-b";
+    });
+    return audio;
+  };
+  fetches.length = 0;
+  statusUpdates.length = 0;
+
+  const result = await withCloudResponse(t, () => ({ status: 200, body: { text: "A's text" } }), 8);
+
+  assert.equal(result.success, false);
+  assert.equal(result.code, "AUTH_CONTEXT_CHANGED");
+  assert.deepEqual(fetches, [], "B's credential must never upload A's saved audio");
+  assert.deepEqual(textUpdates, []);
+  assert.deepEqual(statusUpdates, []);
+});
+
+test("retry: a decode completed after an account change leaves the original row alone", async (t) => {
+  const originalAccountId = fakeThis.databaseManager.activeAccountId;
+  t.after(() => {
+    fakeThis.databaseManager.activeAccountId = originalAccountId;
+  });
+  fakeThis.databaseManager.activeAccountId = "account-a";
+  await withLocalResult(
+    async () => {
+      fakeThis.databaseManager.activeAccountId = "account-b";
+      return { success: true, text: "A's decoded text" };
+    },
+    PARAKEET_SETTINGS,
+    (result) => {
+      assert.equal(result.success, false);
+      assert.equal(result.code, "AUTH_CONTEXT_CHANGED");
+      assert.deepEqual(textUpdates, []);
+      assert.deepEqual(statusUpdates, []);
+    }
+  );
+});
+
+test("retry: a queued completion does not broadcast to the next account", async (t) => {
+  await new Promise(setImmediate);
+  const originalAccountId = fakeThis.databaseManager.activeAccountId;
+  t.after(() => {
+    fakeThis.databaseManager.activeAccountId = originalAccountId;
+  });
+  fakeThis.databaseManager.activeAccountId = "account-a";
+  broadcasts.length = 0;
+
+  const result = await invoke(PARAKEET_SETTINGS);
+  assert.equal(result.success, true);
+  fakeThis.databaseManager.activeAccountId = "account-b";
+  await new Promise(setImmediate);
+
+  assert.deepEqual(broadcasts, [], "the queued A result cannot reach B's renderer");
+});
 
 test("retry: no speech from OpenWhispr Cloud is translated like a local engine's", async (t) => {
   const result = await withCloudResponse(
